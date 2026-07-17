@@ -1,16 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole, Mail, Store } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "forgot" | "newPassword";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loading, user, signIn, signUp } = useAuth();
+  const { loading, user, signIn, signUp, resetPassword, updatePassword } = useAuth();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,18 +19,76 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && mode !== "newPassword") {
       router.replace("/");
     }
-  }, [loading, router, user]);
+  }, [loading, mode, router, user]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+
+    if (params.get("redefinir") === "1" || hash.includes("type=recovery")) {
+      setMode("newPassword");
+    }
+  }, []);
+
+  const title = useMemo(() => {
+    if (mode === "signup") {
+      return { eyebrow: "Primeiro acesso", heading: "Cadastro" };
+    }
+
+    if (mode === "forgot") {
+      return { eyebrow: "Recuperar acesso", heading: "Esqueci minha senha" };
+    }
+
+    if (mode === "newPassword") {
+      return { eyebrow: "Nova senha", heading: "Redefinir senha" };
+    }
+
+    return { eyebrow: "Acesse sua conta", heading: "Login" };
+  }, [mode]);
+
+  function clearFeedback() {
+    setError("");
+    setMessage("");
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setMessage("");
+    clearFeedback();
     setSubmitting(true);
 
     const normalizedEmail = email.trim().toLowerCase();
+
+    if (mode === "forgot") {
+      const result = await resetPassword(normalizedEmail);
+      setSubmitting(false);
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      setMessage("Enviamos um link para seu e-mail. Abra o link para criar uma nova senha.");
+      return;
+    }
+
+    if (mode === "newPassword") {
+      const result = await updatePassword(password);
+      setSubmitting(false);
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      setMessage("Senha atualizada com sucesso. Agora entre usando sua nova senha.");
+      setPassword("");
+      setMode("signin");
+      return;
+    }
+
     const result =
       mode === "signin"
         ? await signIn(normalizedEmail, password)
@@ -86,21 +144,21 @@ export default function LoginPage() {
 
         <section className="p-6 lg:p-8">
           <div className="mb-6">
-            <p className="text-sm font-semibold text-brand">
-              {mode === "signin" ? "Acesse sua conta" : "Primeiro acesso"}
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold text-ink">
-              {mode === "signin" ? "Login" : "Cadastro"}
-            </h2>
+            <p className="text-sm font-semibold text-brand">{title.eyebrow}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-ink">{title.heading}</h2>
           </div>
 
-          <div className="mb-5 grid grid-cols-2 rounded-lg border border-line bg-canvas p-1">
+          <div
+            className={cn(
+              "mb-5 grid grid-cols-2 rounded-lg border border-line bg-canvas p-1",
+              (mode === "forgot" || mode === "newPassword") && "hidden"
+            )}
+          >
             <button
               type="button"
               onClick={() => {
                 setMode("signin");
-                setError("");
-                setMessage("");
+                clearFeedback();
               }}
               className={cn(
                 "rounded-md px-3 py-2 text-sm font-semibold text-muted",
@@ -113,8 +171,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => {
                 setMode("signup");
-                setError("");
-                setMessage("");
+                clearFeedback();
               }}
               className={cn(
                 "rounded-md px-3 py-2 text-sm font-semibold text-muted",
@@ -126,36 +183,48 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="grid gap-4">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-muted">E-mail</span>
-              <div className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
-                <Mail size={18} className="text-muted" />
-                <input
-                  className="min-w-0 flex-1 bg-transparent py-3 outline-none"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="cliente@email.com"
-                  required
-                />
-              </div>
-            </label>
+            {mode !== "newPassword" && (
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-muted">E-mail</span>
+                <div className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
+                  <Mail size={18} className="text-muted" />
+                  <input
+                    className="min-w-0 flex-1 bg-transparent py-3 outline-none"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="cliente@email.com"
+                    required
+                  />
+                </div>
+              </label>
+            )}
 
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-muted">Senha</span>
-              <div className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
-                <LockKeyhole size={18} className="text-muted" />
-                <input
-                  className="min-w-0 flex-1 bg-transparent py-3 outline-none"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Mínimo de 6 caracteres"
-                  minLength={6}
-                  required
-                />
-              </div>
-            </label>
+            {mode !== "forgot" && (
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-muted">
+                  {mode === "signup" || mode === "newPassword" ? "Criar senha" : "Senha"}
+                </span>
+                <div className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
+                  <LockKeyhole size={18} className="text-muted" />
+                  <input
+                    className="min-w-0 flex-1 bg-transparent py-3 outline-none"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Mínimo de 6 caracteres"
+                    minLength={6}
+                    required
+                  />
+                </div>
+                {(mode === "signup" || mode === "newPassword") && (
+                  <span className="text-xs text-muted">
+                    Crie uma senha com no mínimo 6 caracteres. Depois clique em{" "}
+                    {mode === "signup" ? "Criar conta" : "Salvar nova senha"}.
+                  </span>
+                )}
+              </label>
+            )}
 
             {error && (
               <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
@@ -173,17 +242,45 @@ export default function LoginPage() {
               className="rounded-lg bg-brand px-4 py-3 font-semibold text-white shadow-sm disabled:opacity-60"
               disabled={submitting}
             >
-              {submitting
-                ? "Aguarde..."
-                : mode === "signin"
-                  ? "Entrar no aplicativo"
-                  : "Criar conta"}
+              {submitting ? "Aguarde..." : null}
+              {!submitting && mode === "signin" ? "Entrar no aplicativo" : null}
+              {!submitting && mode === "signup" ? "Criar conta" : null}
+              {!submitting && mode === "forgot" ? "Enviar link de recuperação" : null}
+              {!submitting && mode === "newPassword" ? "Salvar nova senha" : null}
             </button>
           </form>
 
-          <p className="mt-5 text-sm text-muted">
-            Após a compra, use o mesmo e-mail do checkout em &quot;Criar conta&quot; para definir sua senha.
-          </p>
+          {mode === "signin" && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("forgot");
+                clearFeedback();
+              }}
+              className="mt-4 text-sm font-semibold text-brand hover:underline"
+            >
+              Esqueci minha senha
+            </button>
+          )}
+
+          {(mode === "forgot" || mode === "newPassword") && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("signin");
+                clearFeedback();
+              }}
+              className="mt-4 text-sm font-semibold text-brand hover:underline"
+            >
+              Voltar para o login
+            </button>
+          )}
+
+          {mode === "signup" && (
+            <p className="mt-5 text-sm text-muted">
+              Após a compra, use o mesmo e-mail do checkout em &quot;Criar conta&quot; para definir sua senha.
+            </p>
+          )}
         </section>
       </div>
     </main>

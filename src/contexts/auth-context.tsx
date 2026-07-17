@@ -13,6 +13,8 @@ type AuthContextValue = {
     email: string,
     password: string
   ) => Promise<{ error?: string; needsConfirmation?: boolean; activatedExisting?: boolean }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
+  updatePassword: (password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 };
 
@@ -117,6 +119,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    if (!supabase) {
+      return { error: "Supabase não configurado." };
+    }
+
+    const redirectTo =
+      typeof window !== "undefined" ? `${window.location.origin}/login?redefinir=1` : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+    return error ? { error: error.message } : {};
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (!supabase) {
+      return { error: "Supabase não configurado." };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    return error ? { error: error.message } : {};
+  }, []);
+
   const value = useMemo(
     () => ({
       loading,
@@ -124,9 +149,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       signIn,
       signUp,
+      resetPassword,
+      updatePassword,
       signOut
     }),
-    [loading, session, signIn, signOut, signUp]
+    [loading, resetPassword, session, signIn, signOut, signUp, updatePassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
