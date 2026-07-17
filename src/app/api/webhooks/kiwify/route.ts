@@ -53,6 +53,7 @@ function getWebhookToken(request: NextRequest, payload: KiwifyPayload) {
   return (
     request.headers.get("x-kiwify-token") ??
     request.headers.get("x-webhook-token") ??
+    request.nextUrl.searchParams.get("token") ??
     bearerToken ??
     payload.token ??
     ""
@@ -64,15 +65,20 @@ function isValidSignature(rawBody: string, signature: string, expectedToken: str
     return false;
   }
 
-  const computedSignature = createHmac("sha256", expectedToken).update(rawBody).digest("hex");
-  const received = Buffer.from(signature, "hex");
-  const computed = Buffer.from(computedSignature, "hex");
+  const signatureCandidates = ["sha1", "sha256"].map((algorithm) =>
+    createHmac(algorithm, expectedToken).update(rawBody).digest("hex")
+  );
 
-  if (received.length !== computed.length) {
-    return false;
-  }
+  return signatureCandidates.some((computedSignature) => {
+    const received = Buffer.from(signature, "hex");
+    const computed = Buffer.from(computedSignature, "hex");
 
-  return timingSafeEqual(received, computed);
+    if (received.length !== computed.length) {
+      return false;
+    }
+
+    return timingSafeEqual(received, computed);
+  });
 }
 
 function isAuthorized(request: NextRequest, payload: KiwifyPayload, rawBody: string) {
