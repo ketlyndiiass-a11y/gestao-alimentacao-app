@@ -18,7 +18,7 @@ export function Sidebar() {
           <Menu size={20} />
         </div>
         <div className="min-w-0">
-          <p className="text-sm text-muted">Gestão</p>
+          <p className="text-sm text-muted">Balcão no Lucro</p>
           <h1 className="truncate text-lg font-semibold">{activeStore.name}</h1>
         </div>
       </div>

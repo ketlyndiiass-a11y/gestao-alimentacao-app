@@ -3,8 +3,8 @@ import { AuthProvider } from "@/contexts/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Gestão Alimentação",
-  description: "Dashboard financeira e precificação para pequenos negócios de alimentação."
+  title: "Balcão no Lucro",
+  description: "Controle vendas, custos e preços do seu negócio em um só lugar."
 };
 
 export default function RootLayout({

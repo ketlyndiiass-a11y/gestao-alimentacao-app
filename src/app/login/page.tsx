@@ -123,10 +123,10 @@ export default function LoginPage() {
             <Store size={25} />
           </div>
           <h1 className="mt-6 text-3xl font-semibold tracking-tight text-ink">
-            Gestão Alimentação
+            Balcão no Lucro
           </h1>
           <p className="mt-3 text-muted">
-            Entre para controlar vendas, despesas, contas, precificação e relatórios do seu negócio.
+            Controle vendas, custos e preços do seu negócio em um só lugar.
           </p>
 
           <div className="mt-8 grid gap-3 text-sm text-muted">
