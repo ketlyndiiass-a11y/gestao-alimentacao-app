@@ -12,6 +12,7 @@ type DeviceAccessState = {
   currentDeviceId?: string;
   deviceCount: number;
   registrationError?: string;
+  retry: () => void;
 };
 
 function getDeviceFingerprint() {
@@ -44,8 +45,10 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
   const [state, setState] = useState<DeviceAccessState>({
     loading: true,
     allowed: false,
-    deviceCount: 0
+    deviceCount: 0,
+    retry: () => undefined
   });
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (authLoading) {
@@ -53,12 +56,12 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
     }
 
     if (!enabled) {
-      setState({ loading: false, allowed: false, deviceCount: 0 });
+      setState((current) => ({ ...current, loading: false, allowed: false, deviceCount: 0 }));
       return;
     }
 
     if (!supabase || !user) {
-      setState({ loading: false, allowed: true, deviceCount: 1 });
+      setState((current) => ({ ...current, loading: false, allowed: true, deviceCount: 1 }));
       return;
     }
 
@@ -83,6 +86,7 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
 
       if (existingError) {
         setState({
+          retry: () => setRetryCount((current) => current + 1),
           loading: false,
           allowed: true,
           deviceCount: 0,
@@ -105,6 +109,7 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
 
         if (!cancelled) {
           setState({
+            retry: () => setRetryCount((current) => current + 1),
             loading: false,
             allowed: true,
             currentDeviceId: existingDevice.id,
@@ -127,6 +132,7 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
 
       if (currentCount >= deviceLimit) {
         setState({
+          retry: () => setRetryCount((current) => current + 1),
           loading: false,
           allowed: false,
           deviceCount: currentCount
@@ -160,6 +166,7 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
           .maybeSingle();
 
         setState({
+          retry: () => setRetryCount((current) => current + 1),
           loading: false,
           allowed: Boolean(createdByAnotherRequest?.id) || currentCount < deviceLimit,
           currentDeviceId: createdByAnotherRequest?.id,
@@ -170,6 +177,7 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
       }
 
       setState({
+        retry: () => setRetryCount((current) => current + 1),
         loading: false,
         allowed: true,
         currentDeviceId: createdDevice?.id,
@@ -182,7 +190,7 @@ export function useDeviceAccess(deviceLimit: number, enabled: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, deviceLimit, enabled, user]);
+  }, [authLoading, deviceLimit, enabled, retryCount, user]);
 
   return state;
 }

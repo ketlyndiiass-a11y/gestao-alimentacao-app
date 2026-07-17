@@ -54,7 +54,12 @@ function getDeviceLabel() {
   return `${browser} - ${platform}`;
 }
 
-export function useDeviceSessions() {
+type UseDeviceSessionsOptions = {
+  registerCurrentDevice?: boolean;
+};
+
+export function useDeviceSessions(options: UseDeviceSessionsOptions = {}) {
+  const { registerCurrentDevice: shouldRegisterCurrentDevice = true } = options;
   const { user, loading: authLoading } = useAuth();
   const [devices, setDevices] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +94,9 @@ export function useDeviceSessions() {
       return;
     }
 
-    await registerCurrentDevice();
+    if (shouldRegisterCurrentDevice) {
+      await registerCurrentDevice();
+    }
 
     const { data, error } = await supabase
       .from("device_sessions")
@@ -112,7 +119,7 @@ export function useDeviceSessions() {
 
     loadDevices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user]);
+  }, [authLoading, shouldRegisterCurrentDevice, user]);
 
   async function removeDevice(id: string) {
     if (!supabase || !user) {

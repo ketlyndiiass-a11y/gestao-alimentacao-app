@@ -203,8 +203,17 @@ create unique index if not exists device_sessions_user_fingerprint_unique
 on public.device_sessions(user_id, device_fingerprint);
 
 grant usage on schema public to service_role;
+grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.profiles to service_role;
 grant select, insert, update, delete on public.subscriptions to service_role;
+grant select, insert, update, delete on public.stores to service_role;
+grant select, insert, update, delete on public.transactions to service_role;
+grant select, insert, update, delete on public.bills to service_role;
+grant select, insert, update, delete on public.priced_products to service_role;
+grant select, insert, update, delete on public.product_ingredients to service_role;
+grant select, insert, update, delete on public.monthly_targets to service_role;
+grant select, insert, update, delete on public.user_settings to service_role;
+grant select on public.plans to service_role;
 grant select, insert, update, delete on public.device_sessions to authenticated;
 grant select, insert, update, delete on public.stores to authenticated;
 grant select, insert, update, delete on public.transactions to authenticated;
