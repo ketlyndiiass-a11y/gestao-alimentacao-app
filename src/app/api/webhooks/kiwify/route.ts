@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 import { findPlan, type PlanId } from "@/lib/plans";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
@@ -58,14 +59,32 @@ function getWebhookToken(request: NextRequest, payload: KiwifyPayload) {
   );
 }
 
-function isAuthorized(request: NextRequest, payload: KiwifyPayload) {
+function isValidSignature(rawBody: string, signature: string, expectedToken: string) {
+  if (!signature) {
+    return false;
+  }
+
+  const computedSignature = createHmac("sha256", expectedToken).update(rawBody).digest("hex");
+  const received = Buffer.from(signature, "hex");
+  const computed = Buffer.from(computedSignature, "hex");
+
+  if (received.length !== computed.length) {
+    return false;
+  }
+
+  return timingSafeEqual(received, computed);
+}
+
+function isAuthorized(request: NextRequest, payload: KiwifyPayload, rawBody: string) {
   const expectedToken = process.env.KIWIFY_WEBHOOK_TOKEN;
 
   if (!expectedToken) {
     return true;
   }
 
-  return getWebhookToken(request, payload) === expectedToken;
+  const signature = request.nextUrl.searchParams.get("signature") ?? "";
+
+  return getWebhookToken(request, payload) === expectedToken || isValidSignature(rawBody, signature, expectedToken);
 }
 
 function planFromPayload(payload: KiwifyPayload): PlanId {
@@ -232,9 +251,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const payload = (await request.json()) as KiwifyPayload;
+  const rawBody = await request.text();
+  const payload = JSON.parse(rawBody) as KiwifyPayload;
 
-  if (!isAuthorized(request, payload)) {
+  if (!isAuthorized(request, payload, rawBody)) {
     return NextResponse.json({ ok: false, error: "Unauthorized webhook." }, { status: 401 });
   }
 
