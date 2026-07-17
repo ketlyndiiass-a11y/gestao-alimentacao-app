@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -9,7 +9,10 @@ type AuthContextValue = {
   session: Session | null;
   user: User | null;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string) => Promise<{ error?: string; needsConfirmation?: boolean }>;
+  signUp: (
+    email: string,
+    password: string
+  ) => Promise<{ error?: string; needsConfirmation?: boolean; activatedExisting?: boolean }>;
   signOut: () => Promise<void>;
 };
 
@@ -47,16 +50,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  async function signIn(email: string, password: string) {
+  const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) {
       return { error: "Supabase não configurado." };
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return error ? { error: error.message } : {};
-  }
+  }, []);
 
-  async function signUp(email: string, password: string) {
+  const activateFirstAccess = useCallback(async (email: string, password: string) => {
+    const response = await fetch("/api/auth/first-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      return {
+        error:
+          result?.error ??
+          "Não foi possível liberar o primeiro acesso. Confira se o e-mail é o mesmo da compra."
+      };
+    }
+
+    const signInResult = await signIn(email, password);
+
+    if (signInResult.error) {
+      return { error: signInResult.error };
+    }
+
+    return { activatedExisting: true };
+  }, [signIn]);
+
+  const signUp = useCallback(async (email: string, password: string) => {
     if (!supabase) {
       return { error: "Supabase não configurado." };
     }
@@ -64,19 +93,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
+      const message = error.message.toLowerCase();
+      const alreadyRegistered =
+        message.includes("already registered") ||
+        message.includes("already been registered") ||
+        message.includes("user already");
+
+      if (alreadyRegistered) {
+        return activateFirstAccess(email, password);
+      }
+
       return { error: error.message };
     }
 
     return { needsConfirmation: !data.session };
-  }
+  }, [activateFirstAccess]);
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     if (!supabase) {
       return;
     }
 
     await supabase.auth.signOut();
-  }
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -87,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signOut
     }),
-    [loading, session]
+    [loading, session, signIn, signOut, signUp]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

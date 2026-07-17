@@ -30,15 +30,21 @@ export default function LoginPage() {
     setMessage("");
     setSubmitting(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
     const result =
       mode === "signin"
-        ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password);
+        ? await signIn(normalizedEmail, password)
+        : await signUp(normalizedEmail, password);
 
     setSubmitting(false);
 
     if (result.error) {
       setError(result.error);
+      return;
+    }
+
+    if ("activatedExisting" in result && result.activatedExisting) {
+      router.replace("/");
       return;
     }
 
@@ -81,7 +87,7 @@ export default function LoginPage() {
         <section className="p-6 lg:p-8">
           <div className="mb-6">
             <p className="text-sm font-semibold text-brand">
-              {mode === "signin" ? "Acesse sua conta" : "Criar acesso de teste"}
+              {mode === "signin" ? "Acesse sua conta" : "Primeiro acesso"}
             </p>
             <h2 className="mt-1 text-2xl font-semibold text-ink">
               {mode === "signin" ? "Login" : "Cadastro"}
@@ -176,7 +182,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-5 text-sm text-muted">
-            Na versão final, o cadastro será liberado automaticamente após a compra no checkout.
+            Após a compra, use o mesmo e-mail do checkout em &quot;Criar conta&quot; para definir sua senha.
           </p>
         </section>
       </div>
