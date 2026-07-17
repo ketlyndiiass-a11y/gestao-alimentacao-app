@@ -206,6 +206,14 @@ grant usage on schema public to service_role;
 grant select, insert, update, delete on public.profiles to service_role;
 grant select, insert, update, delete on public.subscriptions to service_role;
 grant select, insert, update, delete on public.device_sessions to authenticated;
+grant select, insert, update, delete on public.stores to authenticated;
+grant select, insert, update, delete on public.transactions to authenticated;
+grant select, insert, update, delete on public.bills to authenticated;
+grant select, insert, update, delete on public.priced_products to authenticated;
+grant select, insert, update, delete on public.product_ingredients to authenticated;
+grant select, insert, update, delete on public.monthly_targets to authenticated;
+grant select, insert, update, delete on public.user_settings to authenticated;
+grant select on public.plans to authenticated;
 
 create or replace function public.touch_updated_at()
 returns trigger
